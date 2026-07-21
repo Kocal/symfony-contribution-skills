@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+#
+# update: refresh the vendored Symfony contribution docs and optionally
+# regenerate the skills and cross-agent context from them.
+#
+#   bin/update                 fetch the referent .rst into references/, show the diff
+#   bin/update --regenerate    rewrite the SKILL.md files AND the AGENTS/GEMINI
+#                              cheat-sheets from the sources via `claude -p`
+#   bin/update --branch 8.2    fetch from another symfony-docs branch (default: 8.1)
+#   bin/update --help
+#
+# The default run is deterministic: it only downloads .rst and reports what
+# changed upstream. Regeneration is an explicit, LLM-based step you trigger.
+
+set -euo pipefail
+
+BRANCH="8.1"
+REGENERATE=0
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# upstream path (under contributing/) | local path (under references/)
+SOURCES="\
+code/bc.rst|references/code/bc.rst
+code/conventions.rst|references/code/conventions.rst
+code/maintenance.rst|references/code/maintenance.rst
+code/standards.rst|references/code/standards.rst
+documentation/format.rst|references/documentation/format.rst
+documentation/standards.rst|references/documentation/standards.rst"
+
+CODE_SKILL="skills/symfony-code-contribution/SKILL.md"
+DOCS_SKILL="skills/symfony-docs-contribution/SKILL.md"
+CODE_REFS="references/code/standards.rst references/code/conventions.rst references/code/bc.rst references/code/maintenance.rst"
+DOCS_REFS="references/documentation/format.rst references/documentation/standards.rst"
+
+# cross-agent cheat-sheets, regenerated from the SKILL.md files and kept byte-identical
+CONTEXT_FILES="AGENTS.md GEMINI.md"
+
+usage() {
+  cat <<'EOF'
+update: refresh the vendored Symfony contribution docs and optionally
+regenerate the skills and cross-agent context from them.
+
+  bin/update                 fetch the referent .rst into references/, show the diff
+  bin/update --regenerate    rewrite the SKILL.md files AND the AGENTS/GEMINI
+                             cheat-sheets from the sources via `claude -p`
+  bin/update --branch 8.2    fetch from another symfony-docs branch (default: 8.1)
+  bin/update --help
+
+The default run is deterministic: it only downloads .rst and reports what
+changed upstream. Regeneration is an explicit, LLM-based step you trigger.
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --regenerate) REGENERATE=1; shift ;;
+    --branch) BRANCH="${2:?--branch needs a value}"; shift 2 ;;
+    --branch=*) BRANCH="${1#*=}"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+fetch() {
+  local base="https://raw.githubusercontent.com/symfony/symfony-docs/${BRANCH}/contributing"
+  echo "Fetching referent .rst from symfony-docs@${BRANCH} ..."
+  while IFS='|' read -r src dst; do
+    [ -n "$src" ] || continue
+    local out="$ROOT/$dst"
+    mkdir -p "$(dirname "$out")"
+    local code
+    code="$(curl -fsSL -o "$out" -w '%{http_code}' "$base/$src")" \
+      || { echo "  FAIL  $src" >&2; exit 1; }
+    printf '  %s  %s\n' "$code" "$src"
+  done <<< "$SOURCES"
+}
+
+# regenerate_skill <skill-file> <referent .rst...>
+regenerate_skill() {
+  local skill="$1"; shift
+  local refs=("$@")
+  echo "Regenerating $skill ..."
+
+  local sources="" ref
+  for ref in "${refs[@]}"; do
+    sources+="
+--- ${ref} ---
+$(cat "$ROOT/$ref")
+"
+  done
+
+  local prompt
+  prompt="You are updating a Claude Code skill file from its upstream Symfony documentation sources.
+
+Rewrite the skill file below IN PLACE so its rules match the current reStructuredText sources.
+
+Rules:
+- Keep the YAML frontmatter (name, description); refine the description only if the scope genuinely changed.
+- Keep the existing section layout, heading names, and house style: action-first, concise, imperative, Bad/Good tables, no filler.
+- Change, add, or remove individual rules ONLY where the sources dictate. Do not invent rules absent from the sources.
+- Keep it a distilled skill, NOT a verbatim copy of the documentation.
+- Use '->' (ASCII) for arrows, never a Unicode arrow.
+- Output ONLY the raw file content, starting at the first '---'. No code fences, no commentary.
+
+=== CURRENT SKILL FILE ===
+$(cat "$ROOT/$skill")
+
+=== UPSTREAM SOURCES ===${sources}"
+
+  local tmp
+  tmp="$(mktemp)"
+  if claude -p "$prompt" > "$tmp" && [ -s "$tmp" ] && head -n1 "$tmp" | grep -q '^---'; then
+    mv "$tmp" "$ROOT/$skill"
+    echo "  updated."
+  else
+    rm -f "$tmp"
+    echo "  SKIPPED: claude returned nothing usable; $skill left untouched." >&2
+  fi
+}
+
+# regenerate_context: rebuild the AGENTS/GEMINI/CLAUDE cheat-sheets from the SKILL.md
+# files (a second-level distillation) and write the same result to each one present.
+regenerate_context() {
+  local existing=() f
+  for f in $CONTEXT_FILES; do
+    [ -f "$ROOT/$f" ] && existing+=("$f")
+  done
+  [ ${#existing[@]} -gt 0 ] || return 0
+  echo "Regenerating cross-agent context (${existing[*]}) ..."
+
+  local prompt
+  prompt="You are updating the cross-agent context file that ships alongside a set of Symfony contribution skills (used by Claude Code, Codex, and Gemini).
+
+Produce a compact index and cheat-sheet derived from the SKILL.md files below.
+
+Structure:
+- A '# Contributing to Symfony' heading, then a one-line intro.
+- '## Which skill to use': map each situation to its skill name, based on each skill's scope.
+- '## Key rules (code)' and '## Key rules (docs)': the highest-value, most-cited rules as short imperative bullets.
+- A closing line telling the reader to read the matching skills/<name>/SKILL.md for the full rules.
+
+Rules:
+- This is a cheat-sheet, not the full skill: keep it tight.
+- Use '->' (ASCII) for arrows, never a Unicode arrow.
+- Output ONLY the raw markdown, starting at the '#' heading. No code fences, no commentary.
+
+=== SKILLS ===
+--- symfony-code-contribution ---
+$(cat "$ROOT/$CODE_SKILL")
+
+--- symfony-docs-contribution ---
+$(cat "$ROOT/$DOCS_SKILL")"
+
+  local tmp
+  tmp="$(mktemp)"
+  if claude -p "$prompt" > "$tmp" && [ -s "$tmp" ] && head -n1 "$tmp" | grep -q '^#'; then
+    for f in "${existing[@]}"; do cp "$tmp" "$ROOT/$f"; done
+    rm -f "$tmp"
+    echo "  updated ${existing[*]} (kept identical)."
+  else
+    rm -f "$tmp"
+    echo "  SKIPPED: claude returned nothing usable; context files left untouched." >&2
+  fi
+}
+
+show_diff() {
+  echo
+  if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    if git -C "$ROOT" diff --quiet 2>/dev/null \
+       && [ -z "$(git -C "$ROOT" ls-files --others --exclude-standard)" ]; then
+      echo "Nothing changed: everything matches the committed copy."
+    else
+      echo "Changes:"
+      git -C "$ROOT" --no-pager diff --stat || true
+      git -C "$ROOT" ls-files --others --exclude-standard | sed 's/^/  (new)  /'
+      [ "$REGENERATE" -eq 1 ] || echo "
+Review the diff, then run 'bin/update --regenerate' to rewrite the skills and context."
+    fi
+  else
+    echo "(not a git repo yet: run 'git init' to get diffs on the next update)"
+  fi
+}
+
+fetch
+
+if [ "$REGENERATE" -eq 1 ]; then
+  command -v claude >/dev/null 2>&1 \
+    || { echo "--regenerate needs the 'claude' CLI on your PATH." >&2; exit 1; }
+  echo
+  regenerate_skill "$CODE_SKILL" $CODE_REFS
+  regenerate_skill "$DOCS_SKILL" $DOCS_REFS
+  regenerate_context
+fi
+
+show_diff

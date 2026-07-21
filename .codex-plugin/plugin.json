@@ -1,0 +1,6 @@
+{
+  "name": "symfony-contribution-skills",
+  "version": "0.1.0",
+  "description": "AI agent skills for contributing to Symfony: PHP coding standards, naming conventions, the backward compatibility promise, and reStructuredText documentation standards.",
+  "skills": "./skills/"
+}

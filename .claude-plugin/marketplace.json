@@ -1,0 +1,20 @@
+{
+  "name": "symfony-contribution-skills",
+  "owner": {
+    "name": "Hugo Alliaume",
+    "email": "hugo@alliau.me"
+  },
+  "plugins": [
+    {
+      "name": "symfony-contribution-skills",
+      "description": "AI agent skills for contributing to Symfony: PHP coding standards, naming conventions, the backward compatibility promise, and reStructuredText documentation standards.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Hugo Alliaume",
+        "email": "hugo@alliau.me",
+        "url": "https://hugo.alliau.me"
+      },
+      "source": "./"
+    }
+  ]
+}

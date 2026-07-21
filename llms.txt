@@ -1,0 +1,17 @@
+# Symfony Contribution Agent Skills
+
+> AI agent skills for contributing to Symfony: PHP coding standards, naming conventions, the backward compatibility promise, the patch-version maintenance policy, and reStructuredText documentation standards. Distilled from Symfony's official contribution documentation.
+
+## Skills
+
+- [Symfony Code Contribution](skills/symfony-code-contribution/SKILL.md): PHP coding standards, naming conventions, deprecations, the backward compatibility promise, and the patch-version maintenance policy
+- [Symfony Docs Contribution](skills/symfony-docs-contribution/SKILL.md): reStructuredText format, documentation writing standards, and the documentation PR workflow
+
+## Sources
+
+- [contributing/code/standards.rst](references/code/standards.rst)
+- [contributing/code/conventions.rst](references/code/conventions.rst)
+- [contributing/code/bc.rst](references/code/bc.rst)
+- [contributing/code/maintenance.rst](references/code/maintenance.rst)
+- [contributing/documentation/format.rst](references/documentation/format.rst)
+- [contributing/documentation/standards.rst](references/documentation/standards.rst)
