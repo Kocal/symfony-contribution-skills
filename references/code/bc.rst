@@ -9,7 +9,7 @@ allowed to break backward compatibility. Minor releases (such as 5.1, 5.2 etc.)
 may introduce new features, but must do so without breaking the existing API of
 that release branch (5.x in the previous example).
 
-We also provide deprecation message triggered in the code base to help you with
+We also provide deprecation messages triggered in the code base to help you with
 the migration process across major releases.
 
 .. tip::
@@ -87,7 +87,7 @@ backward compatibility promise:
 +-----------------------------------------------+-----------------------------+
 | **If you implement the interface and...**     | **Then we guarantee BC...** |
 +-----------------------------------------------+-----------------------------+
-| Implement a method                            | Yes                         |
+| Implement a method                            | Yes :ref:`[10] <note-10>`   |
 +-----------------------------------------------+-----------------------------+
 | Add an argument to an implemented method      | Yes                         |
 +-----------------------------------------------+-----------------------------+
@@ -119,7 +119,7 @@ covered by our backward compatibility promise:
 +-----------------------------------------------+-----------------------------+
 | Type hint against the class                   | Yes                         |
 +-----------------------------------------------+-----------------------------+
-| Create a new instance                         | Yes                         |
+| Create a new instance                         | Yes :ref:`[10] <note-10>`   |
 +-----------------------------------------------+-----------------------------+
 | Extend the class                              | Yes                         |
 +-----------------------------------------------+-----------------------------+
@@ -137,9 +137,9 @@ covered by our backward compatibility promise:
 +-----------------------------------------------+-----------------------------+
 | Override a protected property                 | Yes                         |
 +-----------------------------------------------+-----------------------------+
-| Override a public method                      | Yes                         |
+| Override a public method                      | Yes :ref:`[10] <note-10>`   |
 +-----------------------------------------------+-----------------------------+
-| Override a protected method                   | Yes                         |
+| Override a protected method                   | Yes :ref:`[10] <note-10>`   |
 +-----------------------------------------------+-----------------------------+
 | Add a new property                            | No                          |
 +-----------------------------------------------+-----------------------------+
@@ -276,8 +276,9 @@ Remove private property                                                   Yes
 Add constructor without mandatory arguments                               Yes             :ref:`[1] <note-1>`
 :ref:`Add argument without a default value <add-argument-public-method>`  No
 Add argument with a default value                                         Yes             :ref:`[11] <note-11>`
+Rename argument                                                           Yes             :ref:`[10] <note-10>`
 Remove argument                                                           No              :ref:`[3] <note-3>`
-Add default value to an argument                                          Yes
+Add default value to an argument                                          Yes             :ref:`[14] <note-14>`
 Change default value of an argument                                       No              :ref:`[12] <note-12>`
 Remove default value of an argument                                       No              :ref:`[13] <note-13>`
 Add type hint to an argument                                              No
@@ -302,7 +303,7 @@ Move to parent class                                                      Yes
 :ref:`Add argument with a default value <add-argument-public-method>`     No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
 Rename argument                                                           Yes             :ref:`[10] <note-10>`
 Remove argument                                                           No              :ref:`[3] <note-3>`
-Add default value to an argument                                          No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
+Add default value to an argument                                          No              :ref:`[7] <note-7>` :ref:`[8] <note-8>` :ref:`[14] <note-14>`
 Remove default value of an argument                                       No              :ref:`[13] <note-13>`
 Add type hint to an argument                                              No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
 Remove type hint of an argument                                           No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
@@ -322,7 +323,7 @@ Move to parent class                                                      Yes
 :ref:`Add argument with a default value <add-argument-public-method>`     No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
 Rename argument                                                           Yes             :ref:`[10] <note-10>`
 Remove argument                                                           No              :ref:`[3] <note-3>`
-Add default value to an argument                                          No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
+Add default value to an argument                                          No              :ref:`[7] <note-7>` :ref:`[8] <note-8>` :ref:`[14] <note-14>`
 Change default value of an argument                                       No              :ref:`[12] <note-12>`
 Remove default value of an argument                                       No              :ref:`[13] <note-13>` :ref:`[7] <note-7>`
 Add type hint to an argument                                              No              :ref:`[7] <note-7>` :ref:`[8] <note-8>`
@@ -476,21 +477,23 @@ constant should not be changed.
 
 .. _note-6:
 
-**[6]** Allowed using the ``@final`` annotation.
+**[6]** Allowed using the ``@final since Symfony x.y`` annotation. Remove the
+``since Symfony x.y`` part in the next major version, when switching to the
+plain ``@final`` annotation or to the native ``final`` keyword.
 
 .. _note-7:
 
-**[7]** Allowed if the class is final. Classes that received the ``@final``
-annotation after their first release are considered final in their next major
-version. Changing an argument type is only possible with a parent type. Changing
-a return type is only possible with a child type.
+**[7]** Allowed if the class is final. A class annotated with ``@final`` is
+considered final unless the annotation is followed by ``since Symfony x.y``.
+Changing an argument type is only possible with a parent type. Changing a
+return type is only possible with a child type.
 
 .. _note-8:
 
-**[8]** Allowed if the method is final. Methods that received the ``@final``
-annotation after their first release are considered final in their next major
-version. Changing an argument type is only possible with a parent type. Changing
-a return type is only possible with a child type.
+**[8]** Allowed if the method is final. A method annotated with ``@final`` is
+considered final unless the annotation is followed by ``since Symfony x.y``.
+Changing an argument type is only possible with a parent type. Changing a
+return type is only possible with a child type.
 
 .. _note-9:
 
@@ -499,12 +502,53 @@ a return type is only possible with a child type.
 .. _note-10:
 
 **[10]** Parameter names are only covered by the compatibility promise for
-constructors of Attribute classes. Using PHP named arguments might break your
-code when upgrading to newer Symfony versions.
+constructors of Attribute classes and for methods tagged with one of the
+following PHPDoc tags. Covered parameter names never change. Other parameters
+can be renamed, so using PHP named arguments for them might break your code
+when upgrading to newer Symfony versions.
+
+* ``@optional-arguments-by-name``: the names of optional parameters are covered
+  but not their order, so pass optional arguments by name. The order of required
+  parameters is covered but not their names, so pass required arguments by
+  position;
+* ``@arguments-by-name``: the names of all parameters are covered but not their
+  order, so pass all arguments by name;
+* ``@stable-parameter-names``: both the names and the order of all parameters
+  are covered, so you can pass arguments by name or by position.
+
+For example::
+
+    class Pagination
+    {
+        /**
+         * @optional-arguments-by-name
+         */
+        public function __construct(int $page, int $itemsPerPage = 20)
+        {
+            // ...
+        }
+    }
+
+    // OK: required argument by position, optional argument by name
+    new Pagination(3, itemsPerPage: 50);
+    // might break on upgrade because the position of optional arguments can change
+    new Pagination(3, 50);
+
+When one of these tags is added to the PHPDoc of a class, interface, trait or
+enum, it applies to all its public and protected methods. In traits, it also
+applies to private methods, because the classes that use the trait can call
+them.
+
+When you implement or override a method tagged with one of these tags (except
+constructors), keep the same parameter names, because the code that calls your
+method through the interface or the parent class can pass arguments by name.
 
 .. _note-11:
 
 **[11]** Only optional argument(s) of a constructor at last position may be added.
+When the constructor uses the ``@optional-arguments-by-name`` or
+``@arguments-by-name`` tag, a new optional argument may be added at any position
+after the required arguments.
 
 .. _note-12:
 
@@ -515,6 +559,13 @@ of existing code that relies on the current default value.
 
 **[13]** Removing a default value is a BC break because it makes previously
 optional arguments required, breaking existing code that doesn't pass all arguments.
+
+.. _note-14:
+
+**[14]** Not allowed when the method uses the ``@optional-arguments-by-name``
+tag. Callers pass required arguments by position, but the position of optional
+arguments isn't covered, so those existing calls would no longer be covered by
+the promise.
 
 Making Code Changes in a Backward Compatible Way
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -580,6 +631,34 @@ If that's the case, here is how to do it properly in a minor version:
 #. In the next major version (``X.0``), uncomment the argument, remove the
    PHPDoc if there is no need for a description, and remove the
    ``func_get_arg`` code and the warning if any.
+
+The ``final`` Keyword
+.....................
+
+Making a class, method, property or constant ``final`` prevents it from being
+extended or overridden. Doing that is a backward compatibility break.
+
+The ``@final`` PHPDoc annotation marks code as final without actually enforcing
+it. Adding it doesn't break any code by itself, but it reduces the list of
+changes that are considered backward compatibility breaks. For instance, turning
+a protected property into a public one is allowed in final classes, because
+there's no risk of colliding with a property of the same name defined in a child
+class. That's why ``@final`` must never be added in a minor release, unless it's
+qualified with ``since Symfony x.y`` as explained below.
+
+Use the ``@final since Symfony x.y`` annotation to announce that a class,
+method, property or constant will be made final in the next major version. It
+tells users to stop extending or overriding it, and tells contributors that it
+isn't considered final yet. In the next major version, either replace the
+annotation with the native ``final`` keyword, or remove the
+``since Symfony x.y`` part and leave only ``@final``.
+
+.. note::
+
+    Symfony's ``DebugClassLoader`` copies the text that follows ``@final``
+    verbatim into the deprecation message. For example, ``@final since Symfony 8.1``
+    results in ``The "..." class is considered final since Symfony 8.1``,
+    so keep that text short and accurate.
 
 .. _experimental-features:
 

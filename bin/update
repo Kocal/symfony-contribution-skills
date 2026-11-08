@@ -6,7 +6,7 @@
 #   bin/update                 fetch the referent .rst into references/, show the diff
 #   bin/update --regenerate    rewrite the SKILL.md files AND the AGENTS/GEMINI
 #                              cheat-sheets from the sources via `claude -p`
-#   bin/update --branch 8.2    fetch from another symfony-docs branch (default: 8.1)
+#   bin/update --branch 7.4    fetch from another symfony-docs branch (default: 8.2)
 #   bin/update --help
 #
 # The default run is deterministic: it only downloads .rst and reports what
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-BRANCH="8.1"
+BRANCH="8.2"
 REGENERATE=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,7 +45,7 @@ regenerate the skills and cross-agent context from them.
   bin/update                 fetch the referent .rst into references/, show the diff
   bin/update --regenerate    rewrite the SKILL.md files AND the AGENTS/GEMINI
                              cheat-sheets from the sources via `claude -p`
-  bin/update --branch 8.2    fetch from another symfony-docs branch (default: 8.1)
+  bin/update --branch 7.4    fetch from another symfony-docs branch (default: 8.2)
   bin/update --help
 
 The default run is deterministic: it only downloads .rst and reports what
