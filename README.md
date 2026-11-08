@@ -83,7 +83,7 @@ The skills are a **distillation** of the Symfony docs, not a verbatim copy, so u
 ```bash
 bin/update                 # fetch the referent .rst into references/, show what changed upstream
 bin/update --regenerate    # rewrite the SKILL.md files + AGENTS/GEMINI cheat-sheets via `claude -p`
-bin/update --branch 8.2    # target another symfony-docs branch (default: 8.1)
+bin/update --branch 7.4    # target another symfony-docs branch (default: 8.2)
 ```
 
 The default run is deterministic: it only downloads the `.rst` files and prints the diff, nothing gets rewritten. Regeneration is a separate, explicit step that uses the `claude` CLI to rewrite the two skills from the updated `.rst`, then rebuilds the `AGENTS.md` and `GEMINI.md` cheat-sheets from those skills so every agent stays in sync. Since that step is LLM-based, review it with `git diff` before committing. When Symfony opens a newer stable branch, bump `BRANCH` in the script or pass `--branch`.
